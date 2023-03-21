@@ -20,3 +20,4 @@ PCRE2 regular expressions for matching on arbitrary bytes.
 pub mod bytes;
 mod error;
 mod ffi;
+mod regex_impl;
