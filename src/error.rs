@@ -118,9 +118,7 @@ impl Error {
         // PCRE2 docs say a buffer size of 120 bytes is enough, but we're
         // cautious and double it.
         let mut buf = [0u8; 240];
-        let rc = unsafe {
-            pcre2_get_error_message_8(self.code, buf.as_mut_ptr(), buf.len())
-        };
+        let rc = unsafe { pcre2_get_error_message_8(self.code, buf.as_mut_ptr(), buf.len()) };
         // Errors are only ever constructed from codes reported by PCRE2, so
         // our code should always be valid.
         assert!(rc != PCRE2_ERROR_BADDATA, "used an invalid error code");
@@ -142,21 +140,18 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = self.error_message();
         match self.kind {
-            ErrorKind::Compile => {
-                match self.offset {
-                    None => {
-                        write!(f, "PCRE2: error compiling pattern: {}", msg)
-                    }
-                    Some(offset) => {
-                        write!(
-                            f,
-                            "PCRE2: error compiling pattern at offset {}: {}",
-                            offset,
-                            msg
-                        )
-                    }
+            ErrorKind::Compile => match self.offset {
+                None => {
+                    write!(f, "PCRE2: error compiling pattern: {}", msg)
                 }
-            }
+                Some(offset) => {
+                    write!(
+                        f,
+                        "PCRE2: error compiling pattern at offset {}: {}",
+                        offset, msg
+                    )
+                }
+            },
             ErrorKind::JIT => {
                 write!(f, "PCRE2: error JIT compiling pattern: {}", msg)
             }

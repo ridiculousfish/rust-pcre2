@@ -17,9 +17,7 @@ use crate::error::Error;
 /// Returns true if and only if PCRE2 believes that JIT is available.
 pub fn is_jit_available() -> bool {
     let mut rc: u32 = 0;
-    let error_code = unsafe {
-        pcre2_config_8(PCRE2_CONFIG_JIT, &mut rc as *mut _ as *mut c_void)
-    };
+    let error_code = unsafe { pcre2_config_8(PCRE2_CONFIG_JIT, &mut rc as *mut _ as *mut c_void) };
     if error_code < 0 {
         // If PCRE2_CONFIG_JIT is a bad option, then there's a bug somewhere.
         panic!("BUG: {}", Error::jit(error_code));
@@ -64,11 +62,7 @@ impl Drop for Code {
 impl Code {
     /// Compile the given pattern with the given options. If there was a
     /// problem compiling the pattern, then return an error.
-    pub fn new(
-        pattern: &str,
-        options: u32,
-        mut ctx: CompileContext,
-    ) -> Result<Code, Error> {
+    pub fn new(pattern: &str, options: u32, mut ctx: CompileContext) -> Result<Code, Error> {
         let (mut error_code, mut error_offset) = (0, 0);
         let code = unsafe {
             pcre2_compile_8(
@@ -83,7 +77,11 @@ impl Code {
         if code.is_null() {
             Err(Error::compile(error_code, error_offset))
         } else {
-            Ok(Code { code, compiled_jit: false, ctx })
+            Ok(Code {
+                code,
+                compiled_jit: false,
+                ctx,
+            })
         }
     }
 
@@ -92,9 +90,7 @@ impl Code {
     /// If there was a problem performing JIT compilation, then this returns
     /// an error.
     pub fn jit_compile(&mut self) -> Result<(), Error> {
-        let error_code = unsafe {
-            pcre2_jit_compile_8(self.code, PCRE2_JIT_COMPLETE)
-        };
+        let error_code = unsafe { pcre2_jit_compile_8(self.code, PCRE2_JIT_COMPLETE) };
         if error_code == 0 {
             self.compiled_jit = true;
             Ok(())
@@ -121,9 +117,7 @@ impl Code {
 
         let name_count = self.name_count()?;
         let size = self.name_entry_size()?;
-        let table = unsafe {
-            slice::from_raw_parts(self.raw_name_table()?, name_count * size)
-        };
+        let table = unsafe { slice::from_raw_parts(self.raw_name_table()?, name_count * size) };
 
         let mut names = vec![None; self.capture_count()?];
         for i in 0..name_count {
@@ -255,9 +249,7 @@ impl CompileContext {
     ///
     /// If memory could not be allocated for the context, then this panics.
     pub fn new() -> CompileContext {
-        let ctx = unsafe {
-            pcre2_compile_context_create_8(ptr::null_mut())
-        };
+        let ctx = unsafe { pcre2_compile_context_create_8(ptr::null_mut()) };
         assert!(!ctx.is_null(), "could not allocate compile context");
         CompileContext(ctx)
     }
@@ -337,17 +329,11 @@ impl MatchData {
     ///
     /// This panics if memory could not be allocated for the block.
     pub fn new(config: MatchConfig, code: &Code) -> MatchData {
-        let match_context = unsafe {
-            pcre2_match_context_create_8(ptr::null_mut())
-        };
+        let match_context = unsafe { pcre2_match_context_create_8(ptr::null_mut()) };
         assert!(!match_context.is_null(), "failed to allocate match context");
 
-        let match_data = unsafe {
-            pcre2_match_data_create_from_pattern_8(
-                code.as_ptr(),
-                ptr::null_mut(),
-            )
-        };
+        let match_data =
+            unsafe { pcre2_match_data_create_from_pattern_8(code.as_ptr(), ptr::null_mut()) };
         assert!(!match_data.is_null(), "failed to allocate match data block");
 
         let jit_stack = match config.max_jit_stack_size {
@@ -355,17 +341,11 @@ impl MatchData {
             Some(_) if !code.compiled_jit => None,
             Some(max) => {
                 let stack = unsafe {
-                    pcre2_jit_stack_create_8(
-                        cmp::min(max, 32 * 1<<10), max, ptr::null_mut(),
-                    )
+                    pcre2_jit_stack_create_8(cmp::min(max, 32 * 1 << 10), max, ptr::null_mut())
                 };
                 assert!(!stack.is_null(), "failed to allocate JIT stack");
 
-                unsafe {
-                    pcre2_jit_stack_assign_8(
-                        match_context, None, stack as *mut c_void,
-                    )
-                };
+                unsafe { pcre2_jit_stack_assign_8(match_context, None, stack as *mut c_void) };
                 Some(stack)
             }
         };
@@ -374,8 +354,12 @@ impl MatchData {
         assert!(!ovector_ptr.is_null(), "got NULL ovector pointer");
         let ovector_count = unsafe { pcre2_get_ovector_count_8(match_data) };
         MatchData {
-            config, match_context, match_data, jit_stack,
-            ovector_ptr, ovector_count,
+            config,
+            match_context,
+            match_data,
+            jit_stack,
+            ovector_ptr,
+            ovector_count,
         }
     }
 
@@ -454,11 +438,6 @@ impl MatchData {
         // here is whether the contents of the ovector are always initialized.
         // The PCRE2 documentation suggests that they are (so does testing),
         // but this isn't actually 100% clear!
-        unsafe {
-            slice::from_raw_parts(
-                self.ovector_ptr,
-                self.ovector_count as usize * 2,
-            )
-        }
+        unsafe { slice::from_raw_parts(self.ovector_ptr, self.ovector_count as usize * 2) }
     }
 }

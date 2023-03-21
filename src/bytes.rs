@@ -6,9 +6,8 @@ use std::sync::Arc;
 
 use log::debug;
 use pcre2_sys::{
-    PCRE2_CASELESS, PCRE2_DOTALL, PCRE2_EXTENDED, PCRE2_MULTILINE,
-    PCRE2_UCP, PCRE2_UTF, PCRE2_NO_UTF_CHECK, PCRE2_UNSET,
-    PCRE2_NEWLINE_ANYCRLF,
+    PCRE2_CASELESS, PCRE2_DOTALL, PCRE2_EXTENDED, PCRE2_MULTILINE, PCRE2_NEWLINE_ANYCRLF,
+    PCRE2_NO_UTF_CHECK, PCRE2_UCP, PCRE2_UNSET, PCRE2_UTF,
 };
 use thread_local::CachedThreadLocal;
 
@@ -47,7 +46,11 @@ impl<'s> Match<'s> {
 
     /// Creates a new match from the given subject string and byte offsets.
     fn new(subject: &'s [u8], start: usize, end: usize) -> Match<'s> {
-        Match { subject, start, end }
+        Match {
+            subject,
+            start,
+            end,
+        }
     }
 
     #[cfg(test)]
@@ -116,7 +119,9 @@ pub struct RegexBuilder {
 impl RegexBuilder {
     /// Create a new builder with a default configuration.
     pub fn new() -> RegexBuilder {
-        RegexBuilder { config: Config::default() }
+        RegexBuilder {
+            config: Config::default(),
+        }
     }
 
     /// Compile the given pattern into a PCRE regex using the current
@@ -342,10 +347,7 @@ impl RegexBuilder {
     /// Increasing the stack size can be useful for larger regular expressions.
     ///
     /// By default, this is set to `None`.
-    pub fn max_jit_stack_size(
-        &mut self,
-        bytes: Option<usize>,
-    ) -> &mut RegexBuilder {
+    pub fn max_jit_stack_size(&mut self, bytes: Option<usize>) -> &mut RegexBuilder {
         self.config.match_config.max_jit_stack_size = bytes;
         self
     }
@@ -444,10 +446,7 @@ impl Regex {
     /// assert_eq!((mat.start(), mat.end()), (2, 15));
     /// # Ok(()) }; example().unwrap()
     /// ```
-    pub fn find<'s>(
-        &self,
-        subject: &'s [u8],
-    ) -> Result<Option<Match<'s>>, Error> {
+    pub fn find<'s>(&self, subject: &'s [u8]) -> Result<Option<Match<'s>>, Error> {
         self.find_at(subject, 0)
     }
 
@@ -540,16 +539,15 @@ impl Regex {
     ///
     /// The `0`th capture group is always unnamed, so it must always be
     /// accessed with `get(0)` or `[0]`.
-    pub fn captures<'s>(
-        &self,
-        subject: &'s [u8],
-    ) -> Result<Option<Captures<'s>>, Error> {
+    pub fn captures<'s>(&self, subject: &'s [u8]) -> Result<Option<Captures<'s>>, Error> {
         let mut locs = self.capture_locations();
-        Ok(self.captures_read(&mut locs, subject)?.map(move |_| Captures {
-            subject: subject,
-            locs: locs,
-            idx: Arc::clone(&self.capture_names_idx),
-        }))
+        Ok(self
+            .captures_read(&mut locs, subject)?
+            .map(move |_| Captures {
+                subject: subject,
+                locs: locs,
+                idx: Arc::clone(&self.capture_names_idx),
+            }))
     }
 
     /// Returns an iterator over all the non-overlapping capture groups matched
@@ -581,10 +579,7 @@ impl Regex {
     /// // Movie: M, Released: 1931
     /// # Ok(()) }; example().unwrap()
     /// ```
-    pub fn captures_iter<'r, 's>(
-        &'r self,
-        subject: &'s [u8],
-    ) -> CaptureMatches<'r, 's> {
+    pub fn captures_iter<'r, 's>(&'r self, subject: &'s [u8]) -> CaptureMatches<'r, 's> {
         CaptureMatches {
             re: self,
             subject: subject,
@@ -602,11 +597,7 @@ impl Regex {
     /// The significance of the starting point is that it takes the surrounding
     /// context into consideration. For example, the `\A` anchor can only
     /// match when `start == 0`.
-    pub fn is_match_at(
-        &self,
-        subject: &[u8],
-        start: usize,
-    ) -> Result<bool, Error> {
+    pub fn is_match_at(&self, subject: &[u8], start: usize) -> Result<bool, Error> {
         assert!(
             start <= subject.len(),
             "start ({}) must be <= subject.len() ({})",
@@ -634,11 +625,7 @@ impl Regex {
     /// The significance of the starting point is that it takes the surrounding
     /// context into consideration. For example, the `\A` anchor can only
     /// match when `start == 0`.
-    pub fn find_at<'s>(
-        &self,
-        subject: &'s [u8],
-        start: usize,
-    ) -> Result<Option<Match<'s>>, Error> {
+    pub fn find_at<'s>(&self, subject: &'s [u8], start: usize) -> Result<Option<Match<'s>>, Error> {
         self.find_at_with_match_data(self.match_data(), subject, start)
     }
 
@@ -759,7 +746,9 @@ impl Regex {
     /// This is always 1 more than the number of syntactic groups in the
     /// pattern, since the first group always corresponds to the entire match.
     pub fn captures_len(&self) -> usize {
-        self.code.capture_count().expect("a valid capture count from PCRE2")
+        self.code
+            .capture_count()
+            .expect("a valid capture count from PCRE2")
     }
 
     /// Returns an empty set of capture locations that can be reused in
@@ -896,7 +885,9 @@ impl<'s> Captures<'s> {
     /// # Ok(()) }; example().unwrap()
     /// ```
     pub fn get(&self, i: usize) -> Option<Match<'s>> {
-        self.locs.get(i).map(|(s, e)| Match::new(self.subject, s, e))
+        self.locs
+            .get(i)
+            .map(|(s, e)| Match::new(self.subject, s, e))
     }
 
     /// Returns the match for the capture group named `name`. If `name` isn't a
@@ -917,7 +908,9 @@ impl<'s> Captures<'s> {
 
 impl<'s> fmt::Debug for Captures<'s> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_tuple("Captures").field(&CapturesDebug(self)).finish()
+        f.debug_tuple("Captures")
+            .field(&CapturesDebug(self))
+            .finish()
     }
 }
 
@@ -946,9 +939,11 @@ impl<'c, 's> fmt::Debug for CapturesDebug<'c, 's> {
             self.0.idx.iter().map(|(a, b)| (b, a)).collect();
         let mut map = f.debug_map();
         for slot in 0..self.0.len() {
-            let m = self.0.locs.get(slot).map(|(s, e)| {
-                escape_bytes(&self.0.subject[s..e])
-            });
+            let m = self
+                .0
+                .locs
+                .get(slot)
+                .map(|(s, e)| escape_bytes(&self.0.subject[s..e]));
             if let Some(name) = slot_to_name.get(&slot) {
                 map.entry(&name, &m);
             } else {
@@ -974,7 +969,8 @@ impl<'s> Index<usize> for Captures<'s> {
     type Output = [u8];
 
     fn index(&self, i: usize) -> &[u8] {
-        self.get(i).map(|m| m.as_bytes())
+        self.get(i)
+            .map(|m| m.as_bytes())
             .unwrap_or_else(|| panic!("no group at index '{}'", i))
     }
 }
@@ -995,7 +991,8 @@ impl<'s, 'i> Index<&'i str> for Captures<'s> {
     type Output = [u8];
 
     fn index<'a>(&'a self, name: &'i str) -> &'a [u8] {
-        self.name(name).map(|m| m.as_bytes())
+        self.name(name)
+            .map(|m| m.as_bytes())
             .unwrap_or_else(|| panic!("no group named '{}'", name))
     }
 }
@@ -1024,11 +1021,9 @@ impl<'r, 's> Iterator for Matches<'r, 's> {
         if self.last_end > self.subject.len() {
             return None;
         }
-        let res = self.re.find_at_with_match_data(
-            self.match_data,
-            self.subject,
-            self.last_end,
-        );
+        let res = self
+            .re
+            .find_at_with_match_data(self.match_data, self.subject, self.last_end);
         let m = match res {
             Err(err) => return Some(Err(err)),
             Ok(None) => return None,
@@ -1074,11 +1069,9 @@ impl<'r, 's> Iterator for CaptureMatches<'r, 's> {
             return None;
         }
         let mut locs = self.re.capture_locations();
-        let res = self.re.captures_read_at(
-            &mut locs,
-            self.subject,
-            self.last_end,
-        );
+        let res = self
+            .re
+            .captures_read_at(&mut locs, self.subject, self.last_end);
         let m = match res {
             Err(err) => return Some(Err(err)),
             Ok(None) => return None,
@@ -1136,10 +1129,7 @@ mod tests {
 
     #[test]
     fn caseless() {
-        let re = RegexBuilder::new()
-            .caseless(true)
-            .build("a")
-            .unwrap();
+        let re = RegexBuilder::new().caseless(true).build("a").unwrap();
         assert!(re.is_match(b("A")).unwrap());
 
         let re = RegexBuilder::new()
@@ -1152,35 +1142,23 @@ mod tests {
 
     #[test]
     fn crlf() {
-        let re = RegexBuilder::new()
-            .crlf(true)
-            .build("a$")
-            .unwrap();
+        let re = RegexBuilder::new().crlf(true).build("a$").unwrap();
         let m = re.find(b("a\r\n")).unwrap().unwrap();
         assert_eq!(m.as_pair(), (0, 1));
     }
 
     #[test]
     fn dotall() {
-        let re = RegexBuilder::new()
-            .dotall(false)
-            .build(".")
-            .unwrap();
+        let re = RegexBuilder::new().dotall(false).build(".").unwrap();
         assert!(!re.is_match(b("\n")).unwrap());
 
-        let re = RegexBuilder::new()
-            .dotall(true)
-            .build(".")
-            .unwrap();
+        let re = RegexBuilder::new().dotall(true).build(".").unwrap();
         assert!(re.is_match(b("\n")).unwrap());
     }
 
     #[test]
     fn extended() {
-        let re = RegexBuilder::new()
-            .extended(true)
-            .build("a b c")
-            .unwrap();
+        let re = RegexBuilder::new().extended(true).build("a b c").unwrap();
         assert!(re.is_match(b("abc")).unwrap());
     }
 
@@ -1192,58 +1170,37 @@ mod tests {
             .unwrap();
         assert!(!re.is_match(b("foo\nabc\nbar")).unwrap());
 
-        let re = RegexBuilder::new()
-            .multi_line(true)
-            .build("^abc$")
-            .unwrap();
+        let re = RegexBuilder::new().multi_line(true).build("^abc$").unwrap();
         assert!(re.is_match(b("foo\nabc\nbar")).unwrap());
     }
 
     #[test]
     fn ucp() {
-        let re = RegexBuilder::new()
-            .ucp(false)
-            .build(r"\w")
-            .unwrap();
+        let re = RegexBuilder::new().ucp(false).build(r"\w").unwrap();
         assert!(!re.is_match(b("β")).unwrap());
 
-        let re = RegexBuilder::new()
-            .ucp(true)
-            .build(r"\w")
-            .unwrap();
+        let re = RegexBuilder::new().ucp(true).build(r"\w").unwrap();
         assert!(re.is_match(b("β")).unwrap());
     }
 
     #[test]
     fn utf() {
-        let re = RegexBuilder::new()
-            .utf(false)
-            .build(".")
-            .unwrap();
+        let re = RegexBuilder::new().utf(false).build(".").unwrap();
         assert_eq!(re.find(b("β")).unwrap().unwrap().as_pair(), (0, 1));
 
-        let re = RegexBuilder::new()
-            .utf(true)
-            .build(".")
-            .unwrap();
+        let re = RegexBuilder::new().utf(true).build(".").unwrap();
         assert_eq!(re.find(b("β")).unwrap().unwrap().as_pair(), (0, 2));
     }
 
     #[test]
     fn jit4lyfe() {
         if is_jit_available() {
-            let re = RegexBuilder::new()
-                .jit(true)
-                .build(r"\w")
-                .unwrap();
+            let re = RegexBuilder::new().jit(true).build(r"\w").unwrap();
             assert!(re.is_match(b("a")).unwrap());
         } else {
             // Check that if JIT isn't enabled, then we get an error if we
             // require JIT.
-            RegexBuilder::new()
-                .jit(true)
-                .build(r"\w")
-                .unwrap_err();
+            RegexBuilder::new().jit(true).build(r"\w").unwrap_err();
         }
     }
 
@@ -1274,32 +1231,28 @@ mod tests {
 
     #[test]
     fn utf_with_invalid_data() {
-        let re = RegexBuilder::new()
-            .build(r".")
-            .unwrap();
+        let re = RegexBuilder::new().build(r".").unwrap();
         assert_eq!(re.find(b"\xFF").unwrap().unwrap().as_pair(), (0, 1));
 
-        let re = RegexBuilder::new()
-            .utf(true)
-            .build(r".")
-            .unwrap();
+        let re = RegexBuilder::new().utf(true).build(r".").unwrap();
         assert!(re.find(b"\xFF").is_err());
     }
 
     #[test]
     fn capture_names() {
         let re = RegexBuilder::new()
-            .build(
-                r"(?P<foo>abc)|(def)|(?P<a>ghi)|(?P<springsteen>jkl)"
-            )
+            .build(r"(?P<foo>abc)|(def)|(?P<a>ghi)|(?P<springsteen>jkl)")
             .unwrap();
-        assert_eq!(re.capture_names().to_vec(), vec![
-            None,
-            Some("foo".to_string()),
-            None,
-            Some("a".to_string()),
-            Some("springsteen".to_string()),
-        ]);
+        assert_eq!(
+            re.capture_names().to_vec(),
+            vec![
+                None,
+                Some("foo".to_string()),
+                None,
+                Some("a".to_string()),
+                Some("springsteen".to_string()),
+            ]
+        );
 
         // Test our internal map as well.
         assert_eq!(re.capture_names_idx.len(), 3);
@@ -1326,9 +1279,10 @@ mod tests {
         assert_eq!(find_iter_tuples(&re, b"\n"), vec![(0, 0)]);
         assert_eq!(find_iter_tuples(&re, b"\n\n"), vec![(0, 0), (1, 1)]);
         assert_eq!(find_iter_tuples(&re, b"\na\n"), vec![(0, 0), (1, 1)]);
-        assert_eq!(find_iter_tuples(&re, b"\na\n\n"), vec![
-            (0, 0), (1, 1), (3, 3),
-        ]);
+        assert_eq!(
+            find_iter_tuples(&re, b"\na\n\n"),
+            vec![(0, 0), (1, 1), (3, 3),]
+        );
     }
 
     #[test]
@@ -1338,9 +1292,10 @@ mod tests {
         assert_eq!(cap_iter_tuples(&re, b"\n"), vec![(0, 0)]);
         assert_eq!(cap_iter_tuples(&re, b"\n\n"), vec![(0, 0), (1, 1)]);
         assert_eq!(cap_iter_tuples(&re, b"\na\n"), vec![(0, 0), (1, 1)]);
-        assert_eq!(cap_iter_tuples(&re, b"\na\n\n"), vec![
-            (0, 0), (1, 1), (3, 3),
-        ]);
+        assert_eq!(
+            cap_iter_tuples(&re, b"\na\n\n"),
+            vec![(0, 0), (1, 1), (3, 3),]
+        );
     }
 
     #[test]
@@ -1377,7 +1332,7 @@ mod tests {
         let re = RegexBuilder::new()
             .ucp(true)
             .jit(true)
-            .max_jit_stack_size(Some(1<<20))
+            .max_jit_stack_size(Some(1 << 20))
             .build(r"((((\w{10})){100}))+")
             .unwrap();
         assert!(re.is_match(hay.as_bytes()).unwrap());
