@@ -56,31 +56,15 @@ const FILES: &'static [&'static str] = &[
     "pcre2_xclass.c",
 ];
 
-fn main() {
-    println!("cargo:rerun-if-env-changed=PCRE2_SYS_STATIC");
-
+fn build_1_pcre2_lib(code_unit_width: &str) {
     let target = env::var("TARGET").unwrap();
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-
-    // Don't link to a system library if we want a static build.
-    let want_static = pcre2_sys_static().unwrap_or(target.contains("musl"));
-    if !want_static && pkg_config::probe_library("libpcre2-8").is_ok() {
-        return;
-    }
-
-    // For a static build, make sure our PCRE2 submodule has been loaded.
-    if has_git() && !Path::new("pcre2/.git").exists() {
-        Command::new("git")
-            .args(&["submodule", "update", "--init"])
-            .status()
-            .unwrap();
-    }
 
     // Set some config options. We mostly just use the default values. We do
     // this in lieu of patching config.h since it's easier.
     let mut builder = cc::Build::new();
     builder
-        .define("PCRE2_CODE_UNIT_WIDTH", "8")
+        .define("PCRE2_CODE_UNIT_WIDTH", code_unit_width)
         .define("HAVE_STDLIB_H", "1")
         .define("HAVE_MEMMOVE", "1")
         .define("HEAP_LIMIT", "20000000")
@@ -94,6 +78,7 @@ fn main() {
         .define("PCRE2_STATIC", "1")
         .define("STDC_HEADERS", "1")
         .define("SUPPORT_PCRE2_8", "1")
+        .define("SUPPORT_PCRE2_32", "1")
         .define("SUPPORT_UNICODE", "1");
     if target.contains("windows") {
         builder.define("HAVE_WINDOWS_H", "1");
@@ -129,7 +114,30 @@ fn main() {
     if env::var("PCRE2_SYS_DEBUG").unwrap_or(String::new()) == "1" {
         builder.debug(true);
     }
-    builder.compile("libpcre2.a");
+    let output_name = format!("libpcre2-{}", code_unit_width);
+    builder.compile(&output_name);
+}
+
+fn main() {
+    println!("cargo:rerun-if-env-changed=PCRE2_SYS_STATIC");
+    let target = env::var("TARGET").unwrap();
+
+    // Don't link to a system library if we want a static build.
+    let want_static = pcre2_sys_static().unwrap_or(target.contains("musl"));
+    if !want_static && pkg_config::probe_library("libpcre2-8").is_ok() {
+        return;
+    }
+
+    // For a static build, make sure our PCRE2 submodule has been loaded.
+    if has_git() && !Path::new("pcre2/.git").exists() {
+        Command::new("git")
+            .args(&["submodule", "update", "--init"])
+            .status()
+            .unwrap();
+    }
+
+    build_1_pcre2_lib("8");
+    build_1_pcre2_lib("32");
 }
 
 fn has_git() -> bool {

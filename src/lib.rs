@@ -21,3 +21,8 @@ pub mod bytes;
 mod error;
 mod ffi;
 mod regex_impl;
+
+/**
+PCRE2 regular expressions for matching on UTF-32 slices.
+*/
+pub mod utf32;
