@@ -169,6 +169,7 @@ pub trait CodeUnitWidth: std::fmt::Debug {
 
 #[derive(Debug)]
 pub struct CodeUnitWidth8;
+
 impl CodeUnitWidth for CodeUnitWidth8 {
     type pcre2_code = pcre2_code_8;
     type PCRE2_CHAR = PCRE2_UCHAR8;
@@ -312,6 +313,7 @@ impl CodeUnitWidth for CodeUnitWidth8 {
 
 #[derive(Debug)]
 pub struct CodeUnitWidth32;
+
 impl CodeUnitWidth for CodeUnitWidth32 {
     type pcre2_code = pcre2_code_32;
     type PCRE2_CHAR = PCRE2_UCHAR32;
@@ -458,8 +460,7 @@ impl CodeUnitWidth for CodeUnitWidth32 {
 }
 
 /// Returns true if and only if PCRE2 believes that JIT is available.
-pub fn is_jit_available() -> bool {
-    type W = CodeUnitWidth8;
+pub fn is_jit_available<W: CodeUnitWidth>() -> bool {
     let mut rc: u32 = 0;
     let error_code = unsafe {
         W::pcre2_config(PCRE2_CONFIG_JIT, &mut rc as *mut _ as *mut c_void)
