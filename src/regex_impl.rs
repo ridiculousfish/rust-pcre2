@@ -6,8 +6,8 @@ use std::sync::Arc;
 
 use log::debug;
 use pcre2_sys::{
-    PCRE2_CASELESS, PCRE2_DOTALL, PCRE2_EXTENDED, PCRE2_MULTILINE, PCRE2_NEWLINE_ANYCRLF,
-    PCRE2_NO_UTF_CHECK, PCRE2_UCP, PCRE2_UNSET, PCRE2_UTF,
+    PCRE2_CASELESS, PCRE2_DOTALL, PCRE2_EXTENDED, PCRE2_MULTILINE, PCRE2_NEVER_UTF,
+    PCRE2_NEWLINE_ANYCRLF, PCRE2_NO_UTF_CHECK, PCRE2_UCP, PCRE2_UNSET, PCRE2_UTF,
 };
 use thread_local::ThreadLocal;
 
@@ -75,6 +75,8 @@ struct Config {
     ucp: bool,
     /// PCRE2_UTF
     utf: bool,
+    /// PCRE2_NEVER_UTF
+    never_utf: bool,
     /// PCRE2_NO_UTF_CHECK
     utf_check: bool,
     /// use pcre2_jit_compile
@@ -103,6 +105,7 @@ impl Default for Config {
             crlf: false,
             ucp: false,
             utf: false,
+            never_utf: false,
             utf_check: true,
             jit: JITChoice::Never,
             match_config: MatchConfig::default(),
@@ -152,6 +155,9 @@ impl<W: CodeUnitWidth> RegexBuilder<W> {
         }
         if self.config.utf {
             options |= PCRE2_UTF;
+        }
+        if self.config.never_utf {
+            options |= PCRE2_NEVER_UTF;
         }
 
         let mut ctx = CompileContext::new();
@@ -278,6 +284,14 @@ impl<W: CodeUnitWidth> RegexBuilder<W> {
     /// This is disabled by default.
     pub fn utf(&mut self, yes: bool) -> &mut Self {
         self.config.utf = yes;
+        self
+    }
+
+    /// Prevent patterns from opting in to UTF matching mode.
+    ///
+    /// This disables the sequence `(*UTF)` from switching to UTF mode.
+    pub fn never_utf(&mut self, yes: bool) -> &mut Self {
+        self.config.never_utf = yes;
         self
     }
 
