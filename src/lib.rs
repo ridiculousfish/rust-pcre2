@@ -17,6 +17,7 @@ pub use crate::ffi::{is_jit_available, version};
 /**
 PCRE2 regular expressions for matching on arbitrary bytes.
 */
+#[cfg(feature = "utf8")]
 pub mod bytes;
 mod error;
 mod ffi;
@@ -25,4 +26,5 @@ mod regex_impl;
 /**
 PCRE2 regular expressions for matching on UTF-32 slices.
 */
+#[cfg(feature = "utf32")]
 pub mod utf32;

@@ -12,6 +12,12 @@ license = "Unlicense/MIT"
 categories = ["external-ffi-bindings"]
 edition = "2018"
 
+[features]
+default = ["utf8"]
+utf8 = []
+utf32 = []
+
+
 [dependencies]
 libc = "0.2"
 

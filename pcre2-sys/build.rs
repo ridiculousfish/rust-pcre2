@@ -5,7 +5,7 @@
 //   2. Otherwise, statically build PCRE2 by hand.
 //
 // For step 1, we permit opting out of using the system library via either
-// explicitly setting the PCRE2_SYS_STATIC environment variable or if we
+// explicitly setting the static-pcre2 feature, or if we
 // otherwise believe we want a static build (e.g., when building with MUSL).
 //
 // For step 2, we roughly follow the directions as laid out in
@@ -119,13 +119,32 @@ fn build_1_pcre2_lib(code_unit_width: &str) {
     builder.compile(&output_name);
 }
 
+fn feature_enabled(feature: &str) -> bool {
+    let env_var_name = format!("CARGO_FEATURE_{}", feature);
+    match env::var(&env_var_name) {
+        Ok(s) => s == "1",
+        Err(_) => false,
+    }
+}
+
 fn main() {
+    let do_utf8 = feature_enabled("UTF8");
+    let do_utf32 = feature_enabled("UTF32");
+    let wants_static = feature_enabled("STATIC_PCRE2");
+
+    if !do_utf8 && !do_utf32 {
+        panic!("Must enable at least one of the UTF8 or UTF32 features");
+    }
+
     println!("cargo:rerun-if-env-changed=PCRE2_SYS_STATIC");
     let target = env::var("TARGET").unwrap();
 
     // Don't link to a system library if we want a static build.
-    let want_static = pcre2_sys_static().unwrap_or(target.contains("musl"));
-    if !want_static && pkg_config::probe_library("libpcre2-8").is_ok() {
+    let do_static = wants_static
+        || target.contains("musl")
+        || (do_utf8 && pkg_config::probe_library("libpcre2-8").is_err())
+        || (do_utf32 && pkg_config::probe_library("libpcre2-32").is_err());
+    if !do_static {
         return;
     }
 
@@ -137,8 +156,12 @@ fn main() {
             .unwrap();
     }
 
-    build_1_pcre2_lib("8");
-    build_1_pcre2_lib("32");
+    if do_utf8 {
+        build_1_pcre2_lib("8");
+    }
+    if do_utf32 {
+        build_1_pcre2_lib("32");
+    }
 }
 
 fn has_git() -> bool {
@@ -147,21 +170,6 @@ fn has_git() -> bool {
         .status()
         .map(|s| s.success())
         .unwrap_or(false)
-}
-
-fn pcre2_sys_static() -> Option<bool> {
-    match env::var("PCRE2_SYS_STATIC") {
-        Err(_) => None,
-        Ok(s) => {
-            if s == "1" {
-                Some(true)
-            } else if s == "0" {
-                Some(false)
-            } else {
-                None
-            }
-        }
-    }
 }
 
 // On `aarch64-apple-ios` clang fails with the following error.

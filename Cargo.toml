@@ -15,6 +15,12 @@ edition = "2021"
 [workspace]
 members = ["pcre2-sys"]
 
+[features]
+default = ["utf8"]
+utf8 = ["pcre2-sys/utf8"]
+utf32 = ["pcre2-sys/utf32"]
+static-pcre2 = []
+
 [dependencies]
 libc = "0.2.46"
 log = "0.4.5"

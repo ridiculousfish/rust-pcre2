@@ -429,41 +429,12 @@ impl<W: CodeUnitWidth> Regex<W> {
     }
 
     /// Returns true if and only if the regex matches the subject string given.
-    ///
-    /// # Example
-    ///
-    /// Test if some text contains at least one word with exactly 13 ASCII word
-    /// bytes:
-    ///
-    /// ```rust
-    /// # fn example() -> Result<(), ::pcre2::Error> {
-    /// use pcre2::bytes::Regex;
-    ///
-    /// let text = b"I categorically deny having triskaidekaphobia.";
-    /// assert!(Regex::new(r"\b\w{13}\b")?.is_match(text)?);
-    /// # Ok(()) }; example().unwrap()
-    /// ```
     pub fn is_match(&self, subject: &[W::SubjectChar]) -> Result<bool, Error> {
         self.is_match_at(subject, 0)
     }
 
     /// Returns the start and end byte range of the leftmost-first match in
     /// `subject`. If no match exists, then `None` is returned.
-    ///
-    /// # Example
-    ///
-    /// Find the start and end location of the first word with exactly 13
-    /// ASCII word bytes:
-    ///
-    /// ```rust
-    /// # fn example() -> Result<(), ::pcre2::Error> {
-    /// use pcre2::bytes::Regex;
-    ///
-    /// let text = b"I categorically deny having triskaidekaphobia.";
-    /// let mat = Regex::new(r"\b\w{13}\b")?.find(text)?.unwrap();
-    /// assert_eq!((mat.start(), mat.end()), (2, 15));
-    /// # Ok(()) }; example().unwrap()
-    /// ```
     pub fn find<'s>(&self, subject: &'s [W::SubjectChar]) -> Result<Option<Match<'s, W>>, Error> {
         self.find_at(subject, 0)
     }
@@ -471,23 +442,6 @@ impl<W: CodeUnitWidth> Regex<W> {
     /// Returns an iterator for each successive non-overlapping match in
     /// `subject`, returning the start and end byte indices with respect to
     /// `subject`.
-    ///
-    /// # Example
-    ///
-    /// Find the start and end location of every word with exactly 13 ASCII
-    /// word bytes:
-    ///
-    /// ```rust
-    /// # fn example() -> Result<(), ::pcre2::Error> {
-    /// use pcre2::bytes::Regex;
-    ///
-    /// let text = b"Retroactively relinquishing remunerations is reprehensible.";
-    /// for result in Regex::new(r"\b\w{13}\b")?.find_iter(text) {
-    ///     let mat = result?;
-    ///     println!("{:?}", mat);
-    /// }
-    /// # Ok(()) }; example().unwrap()
-    /// ```
     pub fn find_iter<'r, 's>(&'r self, subject: &'s [W::SubjectChar]) -> Matches<'r, 's, W> {
         Matches {
             re: self,
@@ -501,59 +455,6 @@ impl<W: CodeUnitWidth> Regex<W> {
     /// Returns the capture groups corresponding to the leftmost-first
     /// match in `subject`. Capture group `0` always corresponds to the entire
     /// match. If no match is found, then `None` is returned.
-    ///
-    /// # Examples
-    ///
-    /// Say you have some text with movie names and their release years,
-    /// like "'Citizen Kane' (1941)". It'd be nice if we could search for text
-    /// looking like that, while also extracting the movie name and its release
-    /// year separately.
-    ///
-    /// ```rust
-    /// # fn example() -> Result<(), ::pcre2::Error> {
-    /// use pcre2::bytes::Regex;
-    ///
-    /// let re = Regex::new(r"'([^']+)'\s+\((\d{4})\)")?;
-    /// let text = b"Not my favorite movie: 'Citizen Kane' (1941).";
-    /// let caps = re.captures(text)?.unwrap();
-    /// assert_eq!(&caps[1], &b"Citizen Kane"[..]);
-    /// assert_eq!(&caps[2], &b"1941"[..]);
-    /// assert_eq!(&caps[0], &b"'Citizen Kane' (1941)"[..]);
-    /// // You can also access the groups by index using the Index notation.
-    /// // Note that this will panic on an invalid index.
-    /// assert_eq!(&caps[1], b"Citizen Kane");
-    /// assert_eq!(&caps[2], b"1941");
-    /// assert_eq!(&caps[0], b"'Citizen Kane' (1941)");
-    /// # Ok(()) }; example().unwrap()
-    /// ```
-    ///
-    /// Note that the full match is at capture group `0`. Each subsequent
-    /// capture group is indexed by the order of its opening `(`.
-    ///
-    /// We can make this example a bit clearer by using *named* capture groups:
-    ///
-    /// ```rust
-    /// # fn example() -> Result<(), ::pcre2::Error> {
-    /// use pcre2::bytes::Regex;
-    ///
-    /// let re = Regex::new(r"'(?P<title>[^']+)'\s+\((?P<year>\d{4})\)")?;
-    /// let text = b"Not my favorite movie: 'Citizen Kane' (1941).";
-    /// let caps = re.captures(text)?.unwrap();
-    /// assert_eq!(&caps["title"], &b"Citizen Kane"[..]);
-    /// assert_eq!(&caps["year"], &b"1941"[..]);
-    /// assert_eq!(&caps[0], &b"'Citizen Kane' (1941)"[..]);
-    /// // You can also access the groups by name using the Index notation.
-    /// // Note that this will panic on an invalid group name.
-    /// assert_eq!(&caps["title"], b"Citizen Kane");
-    /// assert_eq!(&caps["year"], b"1941");
-    /// assert_eq!(&caps[0], b"'Citizen Kane' (1941)");
-    /// # Ok(()) }; example().unwrap()
-    /// ```
-    ///
-    /// Here we name the capture groups, which we can access with the `name`
-    /// method or the `Index` notation with a `&str`. Note that the named
-    /// capture groups are still accessible with `get` or the `Index` notation
-    /// with a `usize`.
     ///
     /// The `0`th capture group is always unnamed, so it must always be
     /// accessed with `get(0)` or `[0]`.
@@ -574,32 +475,6 @@ impl<W: CodeUnitWidth> Regex<W> {
     /// Returns an iterator over all the non-overlapping capture groups matched
     /// in `subject`. This is operationally the same as `find_iter`, except it
     /// yields information about capturing group matches.
-    ///
-    /// # Example
-    ///
-    /// We can use this to find all movie titles and their release years in
-    /// some text, where the movie is formatted like "'Title' (xxxx)":
-    ///
-    /// ```rust
-    /// # fn example() -> Result<(), ::pcre2::Error> {
-    /// use std::str;
-    ///
-    /// use pcre2::bytes::Regex;
-    ///
-    /// let re = Regex::new(r"'(?P<title>[^']+)'\s+\((?P<year>\d{4})\)")?;
-    /// let text = b"'Citizen Kane' (1941), 'The Wizard of Oz' (1939), 'M' (1931).";
-    /// for result in re.captures_iter(text) {
-    ///     let caps = result?;
-    ///     let title = str::from_utf8(&caps["title"]).unwrap();
-    ///     let year = str::from_utf8(&caps["year"]).unwrap();
-    ///     println!("Movie: {:?}, Released: {:?}", title, year);
-    /// }
-    /// // Output:
-    /// // Movie: Citizen Kane, Released: 1941
-    /// // Movie: The Wizard of Oz, Released: 1939
-    /// // Movie: M, Released: 1931
-    /// # Ok(()) }; example().unwrap()
-    /// ```
     pub fn captures_iter<'r, 's>(
         &'r self,
         subject: &'s [W::SubjectChar],
@@ -899,25 +774,6 @@ impl<'s, W: CodeUnitWidth> Captures<'s, W> {
     /// Returns the match associated with the capture group at index `i`. If
     /// `i` does not correspond to a capture group, or if the capture group
     /// did not participate in the match, then `None` is returned.
-    ///
-    /// # Examples
-    ///
-    /// Get the text of the match with a default of an empty string if this
-    /// group didn't participate in the match:
-    ///
-    /// ```rust
-    /// # fn example() -> Result<(), ::pcre2::Error> {
-    /// use pcre2::bytes::Regex;
-    ///
-    /// let re = Regex::new(r"[a-z]+(?:([0-9]+)|([A-Z]+))")?;
-    /// let caps = re.captures(b"abc123")?.unwrap();
-    ///
-    /// let text1 = caps.get(1).map_or(&b""[..], |m| m.as_bytes());
-    /// let text2 = caps.get(2).map_or(&b""[..], |m| m.as_bytes());
-    /// assert_eq!(text1, &b"123"[..]);
-    /// assert_eq!(text2, &b""[..]);
-    /// # Ok(()) }; example().unwrap()
-    /// ```
     pub fn get(&self, i: usize) -> Option<Match<'s, W>> {
         self.locs
             .get(i)
