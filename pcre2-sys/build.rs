@@ -84,7 +84,8 @@ fn build_1_pcre2_lib(code_unit_width: &str) {
         builder.define("HAVE_WINDOWS_H", "1");
     }
 
-    enable_jit(&target, &mut builder);
+    // jit disabled as fish does not want it.
+    // enable_jit(&target, &mut builder);
 
     // Copy PCRE2 headers. Typically, `./configure` would do this for us
     // automatically, but since we're compiling by hand, we do it ourselves.
@@ -181,6 +182,7 @@ fn pcre2_sys_static() -> Option<bool> {
 //
 // We may want to monitor developments on the `aarch64-apple-darwin` front as they may end up
 // propagating to all `aarch64`-based targets and the `x86_64` equivalents.
+#[allow(dead_code)]
 fn enable_jit(target: &str, builder: &mut cc::Build) {
     if !target.starts_with("aarch64-apple")
         && !target.contains("apple-ios")
