@@ -1,8 +1,6 @@
 use {
     libc::c_int,
-    pcre2_sys::{
-        pcre2_get_error_message_8, PCRE2_ERROR_BADDATA, PCRE2_ERROR_NOMEMORY,
-    },
+    pcre2_sys::{self, PCRE2_ERROR_BADDATA, PCRE2_ERROR_NOMEMORY},
 };
 
 /// A PCRE2 error.
@@ -94,7 +92,11 @@ impl Error {
         // cautious and double it.
         let mut buf = [0u8; 240];
         let rc = unsafe {
-            pcre2_get_error_message_8(self.code, buf.as_mut_ptr(), buf.len())
+            pcre2_sys::pcre2_get_error_message_8(
+                self.code,
+                buf.as_mut_ptr(),
+                buf.len(),
+            )
         };
         // Errors are only ever constructed from codes reported by PCRE2, so
         // our code should always be valid.
@@ -104,6 +106,31 @@ impl Error {
         // Sanity check that we do indeed have a non-negative result. 0 is OK.
         assert!(rc >= 0, "expected non-negative but got {}", rc);
         String::from_utf8(buf[..rc as usize].to_vec()).expect("valid UTF-8")
+    }
+
+    /// Returns the error message from PCRE2.
+    pub fn error_message_32(&self) -> String {
+        // PCRE2 docs say a buffer size of 120 bytes is enough, but we're
+        // cautious and double it.
+        let mut buf = [0u32; 240];
+        let rc = unsafe {
+            pcre2_sys::pcre2_get_error_message_32(
+                self.code,
+                buf.as_mut_ptr(),
+                buf.len(),
+            )
+        };
+        // Errors are only ever constructed from codes reported by PCRE2, so
+        // our code should always be valid.
+        assert!(rc != PCRE2_ERROR_BADDATA, "used an invalid error code");
+        // PCRE2 docs claim 120 bytes is enough, and we use more, so...
+        assert!(rc != PCRE2_ERROR_NOMEMORY, "buffer size too small");
+        // Sanity check that we do indeed have a non-negative result. 0 is OK.
+        assert!(rc >= 0, "expected non-negative but got {}", rc);
+        buf[..rc as usize]
+            .iter()
+            .map(|c| char::from_u32(*c).unwrap())
+            .collect()
     }
 }
 
