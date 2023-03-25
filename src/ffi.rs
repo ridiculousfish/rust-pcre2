@@ -23,6 +23,7 @@ pub trait NameTableEntry {
     fn name(&self) -> String;
 }
 
+#[cfg(feature = "utf8")]
 #[repr(C)]
 pub struct name_table_entry_8 {
     match_index_msb: u8,
@@ -33,12 +34,14 @@ pub struct name_table_entry_8 {
     name: u8,
 }
 
+#[cfg(feature = "utf32")]
 #[repr(C)]
 pub struct name_table_entry_32 {
     match_index: u32,
     name: u32, // See above re: flexible array member
 }
 
+#[cfg(feature = "utf8")]
 impl NameTableEntry for name_table_entry_8 {
     fn index(&self) -> usize {
         ((self.match_index_msb as usize) << 8) | (self.match_index_lsb as usize)
@@ -56,6 +59,7 @@ impl NameTableEntry for name_table_entry_8 {
     }
 }
 
+#[cfg(feature = "utf32")]
 impl NameTableEntry for name_table_entry_32 {
     fn index(&self) -> usize {
         self.match_index as usize
@@ -151,8 +155,11 @@ pub trait CodeUnitWidth: std::fmt::Debug {
     unsafe fn pcre2_get_ovector_count(arg1: *mut Self::pcre2_match_data) -> u32;
 }
 
+#[cfg(feature = "utf8")]
 #[derive(Debug)]
 pub struct CodeUnitWidth8;
+
+#[cfg(feature = "utf8")]
 impl CodeUnitWidth for CodeUnitWidth8 {
     type pcre2_code = pcre2_code_8;
     type PCRE2_CHAR = PCRE2_UCHAR8;
@@ -277,8 +284,11 @@ impl CodeUnitWidth for CodeUnitWidth8 {
     }
 }
 
+#[cfg(feature = "utf32")]
 #[derive(Debug)]
 pub struct CodeUnitWidth32;
+
+#[cfg(feature = "utf32")]
 impl CodeUnitWidth for CodeUnitWidth32 {
     type pcre2_code = pcre2_code_32;
     type PCRE2_CHAR = PCRE2_UCHAR32;
@@ -408,8 +418,7 @@ impl CodeUnitWidth for CodeUnitWidth32 {
 }
 
 /// Returns true if and only if PCRE2 believes that JIT is available.
-pub fn is_jit_available() -> bool {
-    type W = CodeUnitWidth8;
+pub fn is_jit_available<W: CodeUnitWidth>() -> bool {
     let mut rc: u32 = 0;
     let error_code = unsafe { W::pcre2_config(PCRE2_CONFIG_JIT, &mut rc as *mut _ as *mut c_void) };
     if error_code < 0 {

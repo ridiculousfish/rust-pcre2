@@ -19,7 +19,7 @@ pub type Match<'s> = MatchImpl<'s, CodeUnitWidth8>;
 
 #[cfg(test)]
 mod tests {
-    use super::{Regex, RegexBuilder};
+    use super::{CodeUnitWidth8, Regex, RegexBuilder};
     use crate::is_jit_available;
 
     fn b(string: &str) -> &[u8] {
@@ -119,7 +119,7 @@ mod tests {
 
     #[test]
     fn jit4lyfe() {
-        if is_jit_available() {
+        if is_jit_available::<CodeUnitWidth8>() {
             let re = RegexBuilder::new().jit(true).build(r"\w").unwrap();
             assert!(re.is_match(b("a")).unwrap());
         } else {
@@ -226,7 +226,7 @@ mod tests {
 
     #[test]
     fn max_jit_stack_size_does_something() {
-        if !is_jit_available() {
+        if !is_jit_available::<CodeUnitWidth8>() {
             return;
         }
 
