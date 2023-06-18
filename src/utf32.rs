@@ -1,5 +1,6 @@
 use crate::ffi::CodeUnitWidth32;
 pub use crate::regex_impl::Match as MatchImpl;
+pub use crate::regex_impl::Captures as CapturesImpl;
 use crate::regex_impl::{Regex as RegexImpl, RegexBuilder as RegexBuilderImpl};
 
 /// A compiled PCRE2 regular expression for matching sequences of Rust chars.
@@ -16,6 +17,19 @@ pub type RegexBuilder = RegexBuilderImpl<CodeUnitWidth32>;
 /// The lifetime parameter `'s` refers to the lifetime of the matched portion
 /// of the subject string.
 pub type Match<'s> = MatchImpl<'s, CodeUnitWidth32>;
+
+/// Captures represents a group of captured byte strings for a single match.
+///
+/// The 0th capture always corresponds to the entire match. Each subsequent
+/// index corresponds to the next capture group in the regex. If a capture
+/// group is named, then the matched byte string is *also* available via the
+/// `name` method. (Note that the 0th capture is always unnamed and so must be
+/// accessed with the `get` method.)
+///
+/// Positions returned from a capture group are always byte indices.
+///
+/// `'s` is the lifetime of the matched subject string.
+pub type Captures<'s> = CapturesImpl<'s, CodeUnitWidth32>;
 
 #[cfg(test)]
 mod tests {
