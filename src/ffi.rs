@@ -153,6 +153,20 @@ pub trait CodeUnitWidth: std::fmt::Debug {
 
     unsafe fn pcre2_get_ovector_pointer(arg1: *mut Self::pcre2_match_data) -> *mut usize;
     unsafe fn pcre2_get_ovector_count(arg1: *mut Self::pcre2_match_data) -> u32;
+
+    unsafe fn pcre2_substitute(
+        code: *const Self::pcre2_code,
+        subject: Self::PCRE2_SPTR,
+        length: usize,
+        startoffset: usize,
+        options: u32,
+        match_data: *mut Self::pcre2_match_data,
+        mcontext: *mut Self::pcre2_match_context,
+        replacement: Self::PCRE2_SPTR,
+        rlength: usize,
+        outputbuffer: *mut Self::PCRE2_CHAR,
+        outputlengthptr: *mut usize,
+    ) -> ::libc::c_int;
 }
 
 #[cfg(feature = "utf8")]
@@ -281,6 +295,33 @@ impl CodeUnitWidth for CodeUnitWidth8 {
     }
     unsafe fn pcre2_get_ovector_count(arg1: *mut Self::pcre2_match_data) -> u32 {
         pcre2_get_ovector_count_8(arg1)
+    }
+    unsafe fn pcre2_substitute(
+        code: *const Self::pcre2_code,
+        subject: Self::PCRE2_SPTR,
+        length: usize,
+        startoffset: usize,
+        options: u32,
+        match_data: *mut Self::pcre2_match_data,
+        mcontext: *mut Self::pcre2_match_context,
+        replacement: Self::PCRE2_SPTR,
+        rlength: usize,
+        outputbuffer: *mut Self::PCRE2_CHAR,
+        outputlengthptr: *mut usize,
+    ) -> ::libc::c_int {
+        pcre2_substitute_8(
+            code,
+            subject,
+            length,
+            startoffset,
+            options,
+            match_data,
+            mcontext,
+            replacement,
+            rlength,
+            outputbuffer,
+            outputlengthptr,
+        )
     }
 }
 
@@ -414,6 +455,34 @@ impl CodeUnitWidth for CodeUnitWidth32 {
     }
     unsafe fn pcre2_get_ovector_count(arg1: *mut Self::pcre2_match_data) -> u32 {
         pcre2_get_ovector_count_32(arg1)
+    }
+
+    unsafe fn pcre2_substitute(
+        code: *const Self::pcre2_code,
+        subject: Self::PCRE2_SPTR,
+        length: usize,
+        startoffset: usize,
+        options: u32,
+        match_data: *mut Self::pcre2_match_data,
+        mcontext: *mut Self::pcre2_match_context,
+        replacement: Self::PCRE2_SPTR,
+        rlength: usize,
+        outputbuffer: *mut Self::PCRE2_CHAR,
+        outputlengthptr: *mut usize,
+    ) -> ::libc::c_int {
+        pcre2_substitute_32(
+            code,
+            subject,
+            length,
+            startoffset,
+            options,
+            match_data,
+            mcontext,
+            replacement,
+            rlength,
+            outputbuffer,
+            outputlengthptr,
+        )
     }
 }
 
@@ -612,6 +681,53 @@ impl<W: CodeUnitWidth> Code<W> {
         } else {
             Ok(1 + count as usize)
         }
+    }
+
+    pub unsafe fn substitute(
+        &self,
+        mut subject: &[W::SubjectChar],
+        mut replacement: &[W::SubjectChar],
+        start: usize,
+        options: u32,
+        output: &mut [W::PCRE2_CHAR],
+        output_len: &mut usize,
+    ) -> Result<usize, Error> {
+        // When the subject is empty, we use an empty slice
+        // with a known valid pointer. Otherwise, slices derived
+        // from, e.g., an empty `Vec<u8>` may not have a valid
+        // pointer, since creating an empty `Vec` is guaranteed
+        // to not allocate.
+        if subject.is_empty() {
+            subject = &[];
+        }
+        if replacement.is_empty() {
+            replacement = &[];
+        }
+        let (subj_ptr, subj_len) = W::subject_to_sptr_len(subject);
+        let (repl_ptr, repl_len) = W::subject_to_sptr_len(replacement);
+
+        // safety: we allow arbitrary options, security contract is on the caller
+        let rc = unsafe {
+            W::pcre2_substitute(
+                self.code,
+                subj_ptr,
+                subj_len,
+                start,
+                options,
+                ptr::null_mut(),
+                // should probably not be null for performance reasons?
+                ptr::null_mut(),
+                repl_ptr,
+                repl_len,
+                output.as_mut_ptr() as *mut W::PCRE2_CHAR,
+                output_len as *mut usize,
+            )
+        };
+        if rc >= 0 {
+            return Ok(rc as usize);
+        }
+        // this might warrant a new error type
+        Err(Error::info(rc))
     }
 }
 

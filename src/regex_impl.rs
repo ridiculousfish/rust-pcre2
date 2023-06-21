@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt;
@@ -6,8 +7,10 @@ use std::sync::Arc;
 
 use log::debug;
 use pcre2_sys::{
-    PCRE2_CASELESS, PCRE2_DOTALL, PCRE2_EXTENDED, PCRE2_MULTILINE, PCRE2_NEVER_UTF,
-    PCRE2_NEWLINE_ANYCRLF, PCRE2_NO_UTF_CHECK, PCRE2_UCP, PCRE2_UNSET, PCRE2_UTF,
+    PCRE2_CASELESS, PCRE2_DOTALL, PCRE2_ERROR_NOMEMORY, PCRE2_EXTENDED, PCRE2_MULTILINE,
+    PCRE2_NEVER_UTF, PCRE2_NEWLINE_ANYCRLF, PCRE2_NO_UTF_CHECK, PCRE2_SUBSTITUTE_EXTENDED,
+    PCRE2_SUBSTITUTE_GLOBAL, PCRE2_SUBSTITUTE_OVERFLOW_LENGTH, PCRE2_SUBSTITUTE_UNSET_EMPTY,
+    PCRE2_UCP, PCRE2_UNSET, PCRE2_UTF,
 };
 use thread_local::ThreadLocal;
 
@@ -491,6 +494,112 @@ impl<W: CodeUnitWidth> Regex<W> {
     #[cfg(test)]
     pub(crate) fn get_capture_names_idxs(&self) -> &HashMap<String, usize> {
         &self.capture_names_idx
+    }
+
+    /// Replace the first instance of
+    pub fn replace<'s>(
+        &self,
+        subject: &'s [W::SubjectChar],
+        replacement: &'s [W::SubjectChar],
+        extended: bool,
+    ) -> Result<Cow<'s, [W::SubjectChar]>, Error>
+    where
+        [<W as CodeUnitWidth>::PCRE2_CHAR]: ToOwned,
+        W::PCRE2_CHAR: TryInto<W::SubjectChar>,
+        <<W as CodeUnitWidth>::PCRE2_CHAR as TryInto<<W as CodeUnitWidth>::SubjectChar>>::Error:
+            std::fmt::Debug,
+    {
+        self.replace_impl(subject, replacement, false, extended)
+    }
+
+    pub fn replace_all<'s>(
+        &self,
+        subject: &'s [W::SubjectChar],
+        replacement: &'s [W::SubjectChar],
+        extended: bool,
+    ) -> Result<Cow<'s, [W::SubjectChar]>, Error>
+    where
+        [<W as CodeUnitWidth>::PCRE2_CHAR]: ToOwned,
+        W::PCRE2_CHAR: TryInto<W::SubjectChar>,
+        <<W as CodeUnitWidth>::PCRE2_CHAR as TryInto<<W as CodeUnitWidth>::SubjectChar>>::Error:
+            std::fmt::Debug,
+    {
+        self.replace_impl(subject, replacement, true, extended)
+    }
+
+    #[inline]
+    fn replace_impl<'s>(
+        &self,
+        subject: &'s [W::SubjectChar],
+        replacement: &'s [W::SubjectChar],
+        replace_all: bool,
+        extended: bool,
+    ) -> Result<Cow<'s, [W::SubjectChar]>, Error>
+    where
+        [<W as CodeUnitWidth>::PCRE2_CHAR]: ToOwned,
+        W::PCRE2_CHAR: TryInto<W::SubjectChar>,
+        <<W as CodeUnitWidth>::PCRE2_CHAR as TryInto<<W as CodeUnitWidth>::SubjectChar>>::Error:
+            std::fmt::Debug,
+    {
+        let mut options: u32 = 0;
+        options |= PCRE2_SUBSTITUTE_OVERFLOW_LENGTH;
+        // TODO: this should probably be configurabe from user-side
+        options |= PCRE2_SUBSTITUTE_UNSET_EMPTY;
+        if extended {
+            options |= PCRE2_SUBSTITUTE_EXTENDED;
+        }
+        if replace_all {
+            options |= PCRE2_SUBSTITUTE_GLOBAL;
+        }
+
+        // TODO: we can use MaybeUninit to avoid allocation
+        let mut capacity = 256;
+        let mut output: Vec<W::PCRE2_CHAR> = Vec::with_capacity(capacity);
+        capacity = output.capacity();
+        let mut saved_capacity = capacity;
+
+        let mut rc = unsafe {
+            self.code
+                .substitute(subject, replacement, 0, options, &mut output, &mut capacity)
+        };
+
+        if let Err(e) = &rc {
+            if e.code() == PCRE2_ERROR_NOMEMORY {
+                if output.try_reserve(capacity - output.capacity()).is_err() {
+                    return Err(rc.unwrap_err());
+                }
+                capacity = output.capacity();
+                saved_capacity = capacity;
+                rc = unsafe {
+                    self.code.substitute(
+                        subject,
+                        replacement,
+                        0,
+                        options,
+                        &mut output,
+                        &mut capacity,
+                    )
+                };
+            }
+        }
+
+        Ok(match rc? {
+            0 => Cow::Borrowed(subject),
+            _ => {
+                // +1 to account for null terminator
+                let result = unsafe {
+                    Vec::from_raw_parts(output.as_mut_ptr(), capacity + 1, saved_capacity)
+                };
+                std::mem::forget(output);
+                let x: Vec<W::SubjectChar> = result
+                    .into_iter()
+                    .map(W::PCRE2_CHAR::try_into)
+                    .collect::<Result<Vec<W::SubjectChar>, _>>()
+                    .expect("PCRE2 returned invalid characters");
+
+                Cow::Owned(x)
+            }
+        })
     }
 }
 

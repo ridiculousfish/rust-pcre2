@@ -1,6 +1,6 @@
 use crate::ffi::CodeUnitWidth32;
-pub use crate::regex_impl::Match as MatchImpl;
 pub use crate::regex_impl::Captures as CapturesImpl;
+pub use crate::regex_impl::Match as MatchImpl;
 use crate::regex_impl::{Regex as RegexImpl, RegexBuilder as RegexBuilderImpl};
 
 /// A compiled PCRE2 regular expression for matching sequences of Rust chars.
