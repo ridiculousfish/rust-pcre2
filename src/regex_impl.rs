@@ -556,7 +556,6 @@ impl<W: CodeUnitWidth> Regex<W> {
         let mut capacity = 256;
         let mut output: Vec<W::PCRE2_CHAR> = Vec::with_capacity(capacity);
         capacity = output.capacity();
-        let mut saved_capacity = capacity;
 
         let mut rc = unsafe {
             self.code
@@ -569,7 +568,6 @@ impl<W: CodeUnitWidth> Regex<W> {
                     return Err(rc.unwrap_err());
                 }
                 capacity = output.capacity();
-                saved_capacity = capacity;
                 rc = unsafe {
                     self.code.substitute(
                         subject,
@@ -583,23 +581,25 @@ impl<W: CodeUnitWidth> Regex<W> {
             }
         }
 
-        Ok(match rc? {
+        let s = match rc? {
             0 => Cow::Borrowed(subject),
             _ => {
                 // +1 to account for null terminator
-                let result = unsafe {
-                    Vec::from_raw_parts(output.as_mut_ptr(), capacity + 1, saved_capacity)
-                };
-                std::mem::forget(output);
-                let x: Vec<W::SubjectChar> = result
+                unsafe { output.set_len(capacity + 1) }; 
+
+                // this is really just a type cast
+                let x: Vec<W::SubjectChar> = output
                     .into_iter()
                     .map(W::PCRE2_CHAR::try_into)
+                    // we don't want to return the null terminator
+                    .take(capacity)
                     .collect::<Result<Vec<W::SubjectChar>, _>>()
                     .expect("PCRE2 returned invalid characters");
 
                 Cow::Owned(x)
             }
-        })
+        };
+        Ok(s)
     }
 }
 
