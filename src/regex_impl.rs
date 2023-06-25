@@ -496,7 +496,8 @@ impl<W: CodeUnitWidth> Regex<W> {
         &self.capture_names_idx
     }
 
-    /// Replace the first instance of
+    /// Replace the first match in the subject string with the replacement
+    /// If `extended` is true, enable PCRE2's extended replacement syntax.
     pub fn replace<'s>(
         &self,
         subject: &'s [W::SubjectChar],
@@ -505,13 +506,12 @@ impl<W: CodeUnitWidth> Regex<W> {
     ) -> Result<Cow<'s, [W::SubjectChar]>, Error>
     where
         [<W as CodeUnitWidth>::PCRE2_CHAR]: ToOwned,
-        W::PCRE2_CHAR: TryInto<W::SubjectChar>,
-        <<W as CodeUnitWidth>::PCRE2_CHAR as TryInto<<W as CodeUnitWidth>::SubjectChar>>::Error:
-            std::fmt::Debug,
     {
         self.replace_impl(subject, replacement, false, extended)
     }
 
+    /// Replace all non-overlapping matches in the subject string with the replacement
+    /// If `extended` is true, enable PCRE2's extended replacement syntax.
     pub fn replace_all<'s>(
         &self,
         subject: &'s [W::SubjectChar],
@@ -520,9 +520,6 @@ impl<W: CodeUnitWidth> Regex<W> {
     ) -> Result<Cow<'s, [W::SubjectChar]>, Error>
     where
         [<W as CodeUnitWidth>::PCRE2_CHAR]: ToOwned,
-        W::PCRE2_CHAR: TryInto<W::SubjectChar>,
-        <<W as CodeUnitWidth>::PCRE2_CHAR as TryInto<<W as CodeUnitWidth>::SubjectChar>>::Error:
-            std::fmt::Debug,
     {
         self.replace_impl(subject, replacement, true, extended)
     }
@@ -537,13 +534,10 @@ impl<W: CodeUnitWidth> Regex<W> {
     ) -> Result<Cow<'s, [W::SubjectChar]>, Error>
     where
         [<W as CodeUnitWidth>::PCRE2_CHAR]: ToOwned,
-        W::PCRE2_CHAR: TryInto<W::SubjectChar>,
-        <<W as CodeUnitWidth>::PCRE2_CHAR as TryInto<<W as CodeUnitWidth>::SubjectChar>>::Error:
-            std::fmt::Debug,
     {
         let mut options: u32 = 0;
         options |= PCRE2_SUBSTITUTE_OVERFLOW_LENGTH;
-        // TODO: this should probably be configurabe from user-side
+        // TODO: this should probably be configurable from user-side
         options |= PCRE2_SUBSTITUTE_UNSET_EMPTY;
         if extended {
             options |= PCRE2_SUBSTITUTE_EXTENDED;
@@ -585,16 +579,21 @@ impl<W: CodeUnitWidth> Regex<W> {
             0 => Cow::Borrowed(subject),
             _ => {
                 // +1 to account for null terminator
-                unsafe { output.set_len(capacity + 1) }; 
+                unsafe { output.set_len(capacity + 1) };
+
+                // All inputs contained valid chars, so we expect all outputs to as well.
+                let to_char = |c: W::PCRE2_CHAR| -> W::SubjectChar {
+                    c.try_into()
+                        .unwrap_or_else(|_| panic!("all output expected to be valid chars"))
+                };
 
                 // this is really just a type cast
                 let x: Vec<W::SubjectChar> = output
                     .into_iter()
-                    .map(W::PCRE2_CHAR::try_into)
+                    .map(to_char)
                     // we don't want to return the null terminator
                     .take(capacity)
-                    .collect::<Result<Vec<W::SubjectChar>, _>>()
-                    .expect("PCRE2 returned invalid characters");
+                    .collect::<Vec<W::SubjectChar>>();
 
                 Cow::Owned(x)
             }

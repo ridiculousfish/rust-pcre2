@@ -33,6 +33,8 @@ pub type Captures<'s> = CapturesImpl<'s, CodeUnitWidth32>;
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use super::{CodeUnitWidth32, Regex, RegexBuilder};
     use crate::is_jit_available;
 
@@ -112,6 +114,20 @@ mod tests {
             .build(b("^abc$"))
             .unwrap();
         assert!(re.is_match(&b("foo\nabc\nbar")).unwrap());
+    }
+
+    #[test]
+    fn replace() {
+        let re = RegexBuilder::new().build(b(".")).unwrap();
+        let s = b("abc");
+        let r = b("");
+        let replaced = re.replace(&s, &r, true).unwrap();
+        assert!(
+            matches!(replaced, Cow::Owned(_)),
+            "a replacement should give a new string"
+        );
+        let replaced = replaced.into_owned();
+        assert_eq!(replaced, &*b("bc"));
     }
 
     #[test]

@@ -90,7 +90,7 @@ pub trait CodeUnitWidth: std::fmt::Debug {
     type pcre2_match_context;
     type pcre2_match_data;
     type pcre2_jit_stack;
-    type PCRE2_CHAR;
+    type PCRE2_CHAR: TryInto<Self::SubjectChar>;
     type PCRE2_SPTR;
     type name_table_entry: NameTableEntry;
     type SubjectChar: Copy;
