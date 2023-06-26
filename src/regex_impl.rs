@@ -501,7 +501,7 @@ impl<W: CodeUnitWidth> Regex<W> {
     pub fn replace<'s>(
         &self,
         subject: &'s [W::SubjectChar],
-        replacement: &'s [W::SubjectChar],
+        replacement: &[W::SubjectChar],
         extended: bool,
     ) -> Result<Cow<'s, [W::SubjectChar]>, Error>
     where
@@ -515,7 +515,7 @@ impl<W: CodeUnitWidth> Regex<W> {
     pub fn replace_all<'s>(
         &self,
         subject: &'s [W::SubjectChar],
-        replacement: &'s [W::SubjectChar],
+        replacement: &[W::SubjectChar],
         extended: bool,
     ) -> Result<Cow<'s, [W::SubjectChar]>, Error>
     where
@@ -528,7 +528,7 @@ impl<W: CodeUnitWidth> Regex<W> {
     fn replace_impl<'s>(
         &self,
         subject: &'s [W::SubjectChar],
-        replacement: &'s [W::SubjectChar],
+        replacement: &[W::SubjectChar],
         replace_all: bool,
         extended: bool,
     ) -> Result<Cow<'s, [W::SubjectChar]>, Error>
