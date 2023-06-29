@@ -546,31 +546,38 @@ impl<W: CodeUnitWidth> Regex<W> {
             options |= PCRE2_SUBSTITUTE_GLOBAL;
         }
 
-        // TODO: we can use MaybeUninit to avoid allocation
-        let mut capacity = 256;
-        let mut output: Vec<W::PCRE2_CHAR> = Vec::with_capacity(capacity);
-        capacity = output.capacity();
+        // We prefer to allocate on the stack but fall back to the heap.
+        // Note that PCRE2 has the following behavior with PCRE2_SUBSTITUTE_OVERFLOW_LENGTH:
+        //   - We supply the initial output buffer size in `capacity`. This should have sufficient
+        //     capacity for the terminating NUL character.
+        //   - If the capacity is NOT sufficient, PCRE2 returns the new required capacity, also
+        //     including the terminating NUL character.
+        //   - If the capacity IS sufficient, PCRE2 returns the number of characters written, NOT
+        //     including the terminating NUL character.
+        // Example: our initial capacity is 256. If the returned string needs to be of length 512,
+        // then PCRE2 will report NOMEMORY and set capacity to 513. After reallocating we pass in
+        // a capacity of 513; it succeeds and sets capacity to 512, which is the length of the result.
+        let mut stack_storage: [W::PCRE2_CHAR; 256] = [W::PCRE2_CHAR::default(); 256];
+        let mut heap_storage = Vec::new();
+        let mut output = stack_storage.as_mut();
+        let mut capacity = output.len();
 
         let mut rc = unsafe {
             self.code
-                .substitute(subject, replacement, 0, options, &mut output, &mut capacity)
+                .substitute(subject, replacement, 0, options, output, &mut capacity)
         };
 
         if let Err(e) = &rc {
             if e.code() == PCRE2_ERROR_NOMEMORY {
-                if output.try_reserve(capacity - output.capacity()).is_err() {
+                if heap_storage.try_reserve_exact(capacity).is_err() {
                     return Err(rc.unwrap_err());
                 }
-                capacity = output.capacity();
+                heap_storage.resize(capacity, W::PCRE2_CHAR::default());
+                output = &mut heap_storage;
+                capacity = output.len();
                 rc = unsafe {
-                    self.code.substitute(
-                        subject,
-                        replacement,
-                        0,
-                        options,
-                        &mut output,
-                        &mut capacity,
-                    )
+                    self.code
+                        .substitute(subject, replacement, 0, options, output, &mut capacity)
                 };
             }
         }
@@ -578,8 +585,8 @@ impl<W: CodeUnitWidth> Regex<W> {
         let s = match rc? {
             0 => Cow::Borrowed(subject),
             _ => {
-                // +1 to account for null terminator
-                unsafe { output.set_len(capacity + 1) };
+                // capacity has been updated with the length of the result (excluding nul terminator).
+                let output = &output[..capacity];
 
                 // All inputs contained valid chars, so we expect all outputs to as well.
                 let to_char = |c: W::PCRE2_CHAR| -> W::SubjectChar {
@@ -588,13 +595,7 @@ impl<W: CodeUnitWidth> Regex<W> {
                 };
 
                 // this is really just a type cast
-                let x: Vec<W::SubjectChar> = output
-                    .into_iter()
-                    .map(to_char)
-                    // we don't want to return the null terminator
-                    .take(capacity)
-                    .collect::<Vec<W::SubjectChar>>();
-
+                let x: Vec<W::SubjectChar> = output.iter().copied().map(to_char).collect();
                 Cow::Owned(x)
             }
         };
